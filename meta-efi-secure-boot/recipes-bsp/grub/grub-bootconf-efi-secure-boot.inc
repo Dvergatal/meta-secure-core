@@ -13,6 +13,7 @@ fakeroot python do_sign:class-target() {
     dir = image_dir + efi_files_path + '/'
 
     uks_bl_sign(dir + 'grub.cfg', d)
+    uks_bl_sign(dir + 'boot-menu.inc', d)
 }
 
 python do_sign() {
@@ -22,6 +23,7 @@ addtask sign after do_install before do_deploy do_package
 
 fakeroot do_chownboot() {
     chown root:root -R ${D}${EFI_FILES_PATH}/grub.cfg${SB_FILE_EXT}
+    chown root:root -R ${D}${EFI_FILES_PATH}/boot-menu.inc${SB_FILE_EXT}
 }
 
 addtask chownboot after do_deploy before do_package
@@ -29,8 +31,10 @@ addtask chownboot after do_deploy before do_package
 do_deploy:append:class-target() {
     # Deploy the stacked grub configs.
     install -m 0600 ${D}${EFI_FILES_PATH}/grub.cfg${SB_FILE_EXT} ${DEPLOYDIR}
+    install -m 0600 ${D}${EFI_FILES_PATH}/boot-menu.inc${SB_FILE_EXT} ${DEPLOYDIR}
 }
 
 FILES:${PN}:append = "\
     ${EFI_FILES_PATH}/grub.cfg${SB_FILE_EXT} \
+    ${EFI_FILES_PATH}/boot-menu.inc${SB_FILE_EXT} \
 "

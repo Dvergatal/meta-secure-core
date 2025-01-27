@@ -23,7 +23,6 @@ GRUB_MOKVERIFY_PATCH = " \
 SRC_URI:append:class-target = " \
     file://0001-Add-efivar-module-to-read-EFI-variables.patch \
     file://0002-grub-verify-Add-strict_security-variable.patch \
-    file://boot-menu.inc \
     ${@d.getVar('GRUB_MOKVERIFY_PATCH') if d.getVar('UEFI_SELOADER') == '1' else ''} \
     ${EXTRA_SRC_URI} \
     file://sbat.csv \
@@ -103,25 +102,6 @@ do_install:append:class-native() {
 }
 
 do_install:append:class-target() {
-    local menu="${WORKDIR}/boot-menu.inc"
-
-    # Enable the default IMA rules if IMA is enabled and luks is disabled.
-    # This is because unseal operation will fail when any PCR is extended
-    # due to updating the aggregate integrity value by the default IMA rules.
-    [ x"${IMA}" = x"1" -a x"${@bb.utils.contains('DISTRO_FEATURES', 'luks', '1', '0', d)}" != x"1" ] && {
-        ! grep -q "ima_policy=tcb" "$menu" &&
-            sed -i 's/^\s*linux\s\+.*bzImage.*/& ima_policy=tcb/g' "$menu"
-    }
-
-    # Replace the root parameter in boot command line with BOOT_CMD_ROOT,
-    # which can be configured. It is helpful when secure boot is enabled.
-    [ -n "${BOOT_CMD_ROOT}" ] && {
-        sed -i "s,root=LABEL=root,root=${BOOT_CMD_ROOT},g" "$menu"
-    }
-
-    # Install the stacked grub configs.
-    install -d "${D}${EFI_FILES_PATH}"
-    install -m 0600 "$menu" "${D}${EFI_FILES_PATH}"
     [ x"${UEFI_SB}" = x"1" ] && {
         install -m 0600 "${WORKDIR}/efi-secure-boot.inc" "${D}${EFI_FILES_PATH}"
         install -m 0600 "${WORKDIR}/password.inc" "${D}${EFI_FILES_PATH}"
@@ -165,7 +145,6 @@ fakeroot python do_sign:class-target() {
     dir = image_dir + efi_files_path + '/'
 
     sb_sign(dir + grub_image, dir + grub_image, d)
-    uks_bl_sign(dir + 'boot-menu.inc', d)
 
     if d.getVar('UEFI_SB') == "1":
         uks_bl_sign(dir + 'efi-secure-boot.inc', d)
@@ -178,8 +157,6 @@ python do_sign() {
 addtask sign after do_install before do_deploy do_package
 
 fakeroot do_chownboot() {
-    chown root:root -R "${D}${EFI_FILES_PATH}/boot-menu.inc${SB_FILE_EXT}"
-
     [ x"${UEFI_SB}" = x"1" ] && {
         chown root:root -R "${D}${EFI_FILES_PATH}/efi-secure-boot.inc${SB_FILE_EXT}"
         chown root:root -R "${D}${EFI_FILES_PATH}/password.inc${SB_FILE_EXT}"
@@ -194,9 +171,7 @@ do_deploy:append:class-target() {
 
     # Deploy the stacked grub configs.
     install -m 0600 "${D}${EFI_FILES_PATH}/grubenv" "${DEPLOYDIR}"
-    install -m 0600 "${D}${EFI_FILES_PATH}/boot-menu.inc" "${DEPLOYDIR}"
-    install -m 0600 "${D}${EFI_FILES_PATH}/boot-menu.inc${SB_FILE_EXT}" "${DEPLOYDIR}"
-
+ 
     [ x"${UEFI_SB}" = x"1" ] && {
         install -m 0600 "${D}${EFI_FILES_PATH}/efi-secure-boot.inc" "${DEPLOYDIR}"
         install -m 0600 "${D}${EFI_FILES_PATH}/password.inc" "${DEPLOYDIR}"
@@ -213,6 +188,5 @@ FILES:${PN} += "${EFI_FILES_PATH}"
 
 CONFFILES:${PN} += "\
     ${EFI_FILES_PATH}/grubenv \
-    ${EFI_FILES_PATH}/boot-menu.inc \
     ${EFI_FILES_PATH}/efi-secure-boot.inc \
 "
