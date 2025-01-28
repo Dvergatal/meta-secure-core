@@ -27,10 +27,10 @@ COMPATIBLE_HOST:aarch64 = 'null'
 
 GRUB_PREFIX_DIR ?= "/EFI/BOOT"
 
-GRUB_SECURE_BOOT_MODULES += "${@'efivar password_pbkdf2 ' if d.getVar('UEFI_SB') == '1' else ''}"
+GRUB_SECURE_BOOT_MODULES += "efivar password_pbkdf2 "
 
 GRUB_SIGNING_MODULES += "${@'pgp gcry_rsa gcry_sha256 gcry_sha512 --pubkey %s ' % d.getVar('GRUB_PUB_KEY') \
-  if d.getVar('GRUB_SIGN_VERIFY') == '1' else ''}"
+    if d.getVar('GRUB_SIGN_VERIFY') == '1' else ''}"
 
 GRUB_SELOADER_MODULES += "${@'mok2verify ' if d.getVar('UEFI_SELOADER') == '1' else ''}"
 
@@ -38,20 +38,20 @@ GRUB_TPM_MODULES += "${@bb.utils.contains('DISTRO_FEATURES', 'tpm2', 'tpm', '', 
 
 GRUB_SECURE_BUILDIN ??= ""
 GRUB_SECURE_BUILDIN:append:class-target = " \
-  tftp reboot chain \
-  ${GRUB_SECURE_BOOT_MODULES} \
-  ${GRUB_SIGNING_MODULES} \
-  ${GRUB_SELOADER_MODULES} \
-  ${GRUB_TPM_MODULES} \
-  --sbat ${WORKDIR}/sbat.csv \
-  ${@'--disable-shim-lock' if d.getVar('UEFI_SELOADER') == '1' or d.getVar('MOK_SB') != "1" else ''} \
-  "
+    tftp reboot chain \
+    ${GRUB_SECURE_BOOT_MODULES} \
+    ${GRUB_SIGNING_MODULES} \
+    ${GRUB_SELOADER_MODULES} \
+    ${GRUB_TPM_MODULES} \
+    --sbat ${WORKDIR}/sbat.csv \
+    ${@'--disable-shim-lock' if d.getVar('UEFI_SELOADER') == '1' or d.getVar('MOK_SB') != "1" else ''} \
+"
 
 # Set a default root specifier.
 inherit user-key-store
 
 python __anonymous () {
-    if d.getVar('UEFI_SB') != "1" or d.getVar('GRUB_SIGN_VERIFY') == '1' and d.getVar('MOK_SB') != "1":
+    if d.getVar('GRUB_SIGN_VERIFY') == '1' and d.getVar('MOK_SB') != "1":
         return
 
     # Override the default filename if efi-secure-boot enabled.
