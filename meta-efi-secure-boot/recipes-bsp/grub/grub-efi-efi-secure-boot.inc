@@ -7,10 +7,6 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/grub-efi:"
 
 GRUB_SIGN_VERIFY_STRICT ?= "1"
 
-EXTRA_SRC_URI = "\
-    ${@'file://efi-secure-boot.inc file://password.inc' if d.getVar('UEFI_SB') == '1' else ''} \
-"
-
 GRUB_MOKVERIFY_PATCH = " \
     file://0003-mok2verify-support-to-verify-non-PE-file-with-PKCS-7.patch \
     file://0004-support-mok2-verify-in-multiboot2-protocol.patch \
@@ -24,7 +20,6 @@ SRC_URI:append:class-target = " \
     file://0001-Add-efivar-module-to-read-EFI-variables.patch \
     file://0002-grub-verify-Add-strict_security-variable.patch \
     ${@d.getVar('GRUB_MOKVERIFY_PATCH') if d.getVar('UEFI_SELOADER') == '1' else ''} \
-    ${EXTRA_SRC_URI} \
     file://sbat.csv \
 "
 
@@ -102,11 +97,6 @@ do_install:append:class-native() {
 }
 
 do_install:append:class-target() {
-    [ x"${UEFI_SB}" = x"1" ] && {
-        install -m 0600 "${WORKDIR}/efi-secure-boot.inc" "${D}${EFI_FILES_PATH}"
-        install -m 0600 "${WORKDIR}/password.inc" "${D}${EFI_FILES_PATH}"
-    }
-
     # Create the initial environment block with empty item.
     grub-editenv "${D}${EFI_FILES_PATH}/grubenv" create
 
@@ -145,25 +135,12 @@ fakeroot python do_sign:class-target() {
     dir = image_dir + efi_files_path + '/'
 
     sb_sign(dir + grub_image, dir + grub_image, d)
-
-    if d.getVar('UEFI_SB') == "1":
-        uks_bl_sign(dir + 'efi-secure-boot.inc', d)
-        uks_bl_sign(dir + 'password.inc', d)
 }
 
 python do_sign() {
 }
 
 addtask sign after do_install before do_deploy do_package
-
-fakeroot do_chownboot() {
-    [ x"${UEFI_SB}" = x"1" ] && {
-        chown root:root -R "${D}${EFI_FILES_PATH}/efi-secure-boot.inc${SB_FILE_EXT}"
-        chown root:root -R "${D}${EFI_FILES_PATH}/password.inc${SB_FILE_EXT}"
-    }
-}
-
-addtask chownboot after do_deploy before do_package
 
 # Append the do_deploy() in oe-core.
 do_deploy:append:class-target() {
@@ -172,13 +149,6 @@ do_deploy:append:class-target() {
     # Deploy the stacked grub configs.
     install -m 0600 "${D}${EFI_FILES_PATH}/grubenv" "${DEPLOYDIR}"
  
-    [ x"${UEFI_SB}" = x"1" ] && {
-        install -m 0600 "${D}${EFI_FILES_PATH}/efi-secure-boot.inc" "${DEPLOYDIR}"
-        install -m 0600 "${D}${EFI_FILES_PATH}/password.inc" "${DEPLOYDIR}"
-        install -m 0600 "${D}${EFI_FILES_PATH}/efi-secure-boot.inc${SB_FILE_EXT}" "${DEPLOYDIR}"
-        install -m 0600 "${D}${EFI_FILES_PATH}/password.inc${SB_FILE_EXT}" "${DEPLOYDIR}"
-    }
-
     install -d "${DEPLOYDIR}/efi-unsigned"
     install -m 0644 "${B}/${GRUB_IMAGE}" "${DEPLOYDIR}/efi-unsigned"
     PSEUDO_DISABLED=1 cp -af "${D}${EFI_FILES_PATH}/${GRUB_TARGET}-efi" "${DEPLOYDIR}/efi-unsigned"
@@ -188,5 +158,4 @@ FILES:${PN} += "${EFI_FILES_PATH}"
 
 CONFFILES:${PN} += "\
     ${EFI_FILES_PATH}/grubenv \
-    ${EFI_FILES_PATH}/efi-secure-boot.inc \
 "
